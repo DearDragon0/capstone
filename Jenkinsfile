@@ -1,64 +1,63 @@
-node{
-    
-    def mavenHome, mavenCMD, docker, tag, dockerHubUser, containerName, httpPort = ""
-    
-    stage('Prepare Environment'){
-        echo 'Initialize Environment'
-        mavenHome = tool name: 'maven' , type: 'hudson.tasks.Maven$MavenInstallation'
+node {
+    def mavenHome, mavenCMD, tag = "3.0", dockerHubUser = "deardragon", containerName = "insure-me", httpPort = "8081"
+
+    stage('Prepare Environment') {
+        echo 'Initializing Environment'
+        mavenHome = tool name: 'maven', type: 'hudson.tasks.Maven$MavenInstallation'
         mavenCMD = "${mavenHome}/bin/mvn"
-        tag="3.0"
-	dockerHubUser="deardragon"
-	containerName="insure-me"
-	httpPort="8081"
     }
-    
-    stage('Code Checkout'){
-        try{
+
+    stage('Code Checkout') {
+        try {
             checkout scm
-        }
-        catch(Exception e){
-            echo 'Exception occured in Git Code Checkout Stage'
+        } catch (Exception e) {
+            echo 'Exception occurred in Git Checkout Stage: ' + e.getMessage()
             currentBuild.result = "FAILURE"
-            //emailext body: '''Dear All,
-            //The Jenkins job ${JOB_NAME} has been failed. Request you to please have a look at it immediately by clicking on the below link. 
-            //${BUILD_URL}''', subject: 'Job ${JOB_NAME} ${BUILD_NUMBER} is failed', to: 'hcpro2017@gmail.com'
+            // Optional: Add email alert here
+            error("Stopping pipeline due to checkout failure.")
         }
     }
-    
-    stage('Maven Build'){
-        sh "${mavenCMD} clean package"        
+
+    stage('Maven Build') {
+        sh "${mavenCMD} clean package"
     }
-    
-    stage('Publish Test Reports'){
-        publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'target/surefire-reports', reportFiles: 'index.html', reportName: 'HTML Report', reportTitles: '', useWrapperFileDirectly: true])
+
+    stage('Publish Test Reports') {
+        publishHTML([
+            allowMissing: false,
+            alwaysLinkToLastBuild: false,
+            keepAll: false,
+            reportDir: 'target/surefire-reports',
+            reportFiles: 'index.html',
+            reportName: 'HTML Report',
+            useWrapperFileDirectly: true
+        ])
     }
-    
-    stage('Docker Image Build'){
-        echo 'Creating Docker image'
-        sh "docker build -t deardragon/insure-me:$tag --pull --no-cache ."
+
+    stage('Docker Image Build') {
+        echo 'Building Docker Image'
+        sh "docker build -t ${dockerHubUser}/${containerName}:${tag} --pull --no-cache ."
     }
-	
-    stage('Docker Image Scan'){
-        echo 'Scanning Docker image for vulnerbilities'
-        sh "docker build -t deardragon/insure-me:${tag} ."
-    }   
-	
-    stage('Publishing Image to DockerHub'){
-        echo 'Pushing the docker image to DockerHub'
+
+    stage('Docker Image Scan') {
+        echo 'Scanning Docker image (placeholder - you can add Trivy or other tools here)'
+        // Example scan command:
+        // sh "trivy image ${dockerHubUser}/${containerName}:${tag}"
+    }
+
+    stage('Publishing Image to DockerHub') {
+        echo 'Pushing Docker image to DockerHub'
         withCredentials([usernamePassword(credentialsId: 'dockerHubAccount', usernameVariable: 'dockerUser', passwordVariable: 'dockerPassword')]) {
-			sh "docker login -u deardragon -p Look@1234"
-			sh "docker push deardragon/insure-me:$tag"
-			echo "Image push complete"
-        } 
-    }    
-	
-	stage('Docker Container Deployment'){
-		sh "docker rm insure-me -f"
-		sh "docker pull deardragon/insure-me:$tag"
-		sh "docker run -d --rm -p 8081:8081 --name insure-me deardragon/insure-me:$tag"
-		echo "Application started on port: ${httpPort} (http)"
-	}
+            sh "docker login -u ${dockerUser} -p ${dockerPassword}"
+            sh "docker push ${dockerHubUser}/${containerName}:${tag}"
+            echo "Image push complete"
+        }
+    }
+
+    stage('Docker Container Deployment') {
+        sh "docker rm ${containerName} -f || true"
+        sh "docker pull ${dockerHubUser}/${containerName}:${tag}"
+        sh "docker run -d --rm -p ${httpPort}:${httpPort} --name ${containerName} ${dockerHubUser}/${containerName}:${tag}"
+        echo "Application deployed on port ${httpPort}"
+    }
 }
-
-
-
