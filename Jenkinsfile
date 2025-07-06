@@ -49,14 +49,14 @@ node {
         withCredentials([usernamePassword(credentialsId: 'dockerHubAccount', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
             sh """
                 echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                docker push $dockerHubUser/asi/$containerName:$tag
+                docker push $dockerHubUser/$containerName:$tag
             """
         }
     }
 
     stage('Docker Container Deployment') {
         sh "docker rm $containerName -f || true"
-        sh "docker pull $dockerHubUser/asi/$containerName:$tag"
+        sh "docker pull $dockerHubUser/$containerName:$tag"
         sh "docker run -d --rm -p $httpPort:$httpPort --name $containerName $dockerHubUser/$containerName:$tag"
         echo "Application started on port: ${httpPort} (http)"
     }
