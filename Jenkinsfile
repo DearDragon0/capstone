@@ -54,14 +54,17 @@ node {
         echo 'Docker scan placeholder (add actual scan tool here)'
     }
 
-    stage('Publishing Image to DockerHub') {
-        echo 'Pushing the docker image to DockerHub'
+    stage('Push Docker Image to DockerHub') {
+    steps {
         withCredentials([usernamePassword(credentialsId: 'dockerHubAccount', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-            sh "docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}"
-            sh "docker push $dockerUser/$containerName:$tag"
-            echo "Image push complete"
+            sh '''
+                echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                docker push ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}
+            '''
         }
     }
+}
+
 
     stage('Docker Container Deployment') {
         sh "docker rm $containerName -f || true"
