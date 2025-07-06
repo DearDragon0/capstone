@@ -4,7 +4,7 @@ node{
     
     stage('Prepare Environment'){
         echo 'Initialize Environment'
-        mavenHome = tool name: 'maven' , type: 'maven'
+        mavenHome = tool name: 'maven' , type: 'hudson.tasks.Maven$MavenInstallation'
         mavenCMD = "${mavenHome}/bin/mvn"
         tag="3.0"
 	dockerHubUser="deardragon"
