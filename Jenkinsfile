@@ -1,72 +1,70 @@
-pipeline {
-    agent any
+node {
+    def mavenHome, mavenCMD, dockerHubUser, tag, containerName, httpPort
 
-    environment {
-        MAVEN_CMD = '/usr/local/maven/bin/mvn'
-        DOCKER_HUB_USER = 'deardragon'
-        IMAGE_NAME = 'insure-me'
-        IMAGE_TAG = '3.0'
-        HTTP_PORT = '8081'
+    stage('Prepare Environment') {
+        echo 'Initialize Environment'
+        mavenHome = tool name: 'maven', type: 'maven'
+        mavenCMD = "${mavenHome}/bin/mvn"
+        tag = "3.0"
+        dockerHubUser = "anujsharma1990"
+        containerName = "insure-me"
+        httpPort = "8081"
     }
 
-    stages {
-        stage('Checkout Source') {
-            steps {
-                checkout scm
-            }
-        }
-
-        stage('Build Backend with Maven') {
-            steps {
-                sh "${MAVEN_CMD} clean package"
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    dockerImage = docker.build("${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}")
-                }
-            }
-        }
-
-        stage('Scan Docker Image') {
-            steps {
-                echo 'Scanning Docker image (you can integrate Trivy here)'
-                // Example: sh "trivy image ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
-            }
-        }
-
-        stage('Push Docker Image to DockerHub') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerHubAccount', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh '''
-                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                        docker push ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}
-                    '''
-                }
-            }
-        }
-
-        stage('Deploy Docker Container') {
-            steps {
-                sh '''
-                    docker rm -f ${IMAGE_NAME} || true
-                    docker pull ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}
-                    docker run -d --rm -p ${HTTP_PORT}:${HTTP_PORT} --name ${IMAGE_NAME} ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}
-                '''
-                echo "Application deployed at http://localhost:${HTTP_PORT}"
-            }
+    stage('Code Checkout') {
+        try {
+            checkout scm
+        } catch (Exception e) {
+            echo 'Exception occurred in Git Code Checkout Stage'
+            currentBuild.result = "FAILURE"
+            // Uncomment and configure the following lines for email notifications if needed.
+            // emailext body: """Dear All,
+            // The Jenkins job ${JOB_NAME} has failed. Please check it immediately by clicking the link below.
+            // ${BUILD_URL}""", subject: "Job ${JOB_NAME} ${BUILD_NUMBER} has failed", to: "jenkins@gmail.com"
         }
     }
 
-    post {
-        always {
-            echo 'Pipeline completed.'
+    stage('Maven Build') {
+        sh "${mavenCMD} clean package"
+    }
+
+    stage('Publish Test Reports') {
+        publishHTML([
+            allowMissing: false,
+            alwaysLinkToLastBuild: false,
+            keepAll: false,
+            reportDir: 'target/surefire-reports',
+            reportFiles: 'index.html',
+            reportName: 'HTML Report'
+        ])
+    }
+
+    stage('Docker Image Build') {
+        echo 'Creating Docker image'
+        sh "docker build -t $dockerHubUser/$containerName:$tag --pull --no-cache ."
+    }
+
+    stage('Docker Image Scan') {
+        echo 'Scanning Docker image for vulnerabilities'
+        // Ideally, use a security scanning tool here (e.g., Trivy, Anchore)
+        // For now, this is just a placeholder; remove redundant docker build:
+        // sh "docker build -t ${dockerHubUser}/insure-me:${tag} ."
+        echo 'Docker scan placeholder (add actual scan tool here)'
+    }
+
+    stage('Publishing Image to DockerHub') {
+        echo 'Pushing the docker image to DockerHub'
+        withCredentials([usernamePassword(credentialsId: 'dockerHubAccount', usernameVariable: 'dockerHubUser', passwordVariable: 'dockerPassword')]) {
+            sh "docker login -u $dockerHubUser -p $dockerPassword"
+            sh "docker push $dockerUser/$containerName:$tag"
+            echo "Image push complete"
         }
-        failure {
-            echo 'Pipeline failed.'
-        }
+    }
+
+    stage('Docker Container Deployment') {
+        sh "docker rm $containerName -f || true"
+        sh "docker pull $dockerHubUser/$containerName:$tag"
+        sh "docker run -d --rm -p $httpPort:$httpPort --name $containerName $dockerHubUser/$containerName:$tag"
+        echo "Application started on port: ${httpPort} (http)"
     }
 }
-
