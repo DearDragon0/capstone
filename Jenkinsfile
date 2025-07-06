@@ -15,3 +15,15 @@ pipeline {
                 checkout scm
             }
         }
+        stage('Build Backend with Maven') {
+            steps {
+                sh "${MAVEN_CMD} clean package"
+            }
+        }
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    dockerImage = docker.build("${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}")
+                }
+            }
+        }
