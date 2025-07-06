@@ -25,6 +25,7 @@ node {
     }
 
     stage('Maven Build') {
+        sh "mvn clean package"
         sh "${mavenCMD} clean package"
     }
 
@@ -41,6 +42,7 @@ node {
 
     stage('Docker Image Build') {
         echo 'Creating Docker image'
+        sh "docker build -t myapp ."
         sh "docker build -t $dockerHubUser/$containerName:$tag --pull --no-cache ."
     }
 
