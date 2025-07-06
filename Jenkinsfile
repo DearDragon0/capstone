@@ -17,15 +17,10 @@ node {
         } catch (Exception e) {
             echo 'Exception occurred in Git Code Checkout Stage'
             currentBuild.result = "FAILURE"
-            // Uncomment and configure the following lines for email notifications if needed.
-            // emailext body: """Dear All,
-            // The Jenkins job ${JOB_NAME} has failed. Please check it immediately by clicking the link below.
-            // ${BUILD_URL}""", subject: "Job ${JOB_NAME} ${BUILD_NUMBER} has failed", to: "jenkins@gmail.com"
         }
     }
 
     stage('Maven Build') {
-        sh "mvn clean package"
         sh "${mavenCMD} clean package"
     }
 
@@ -42,29 +37,22 @@ node {
 
     stage('Docker Image Build') {
         echo 'Creating Docker image'
-        sh "docker build -t myapp ."
         sh "docker build -t $dockerHubUser/$containerName:$tag --pull --no-cache ."
     }
 
     stage('Docker Image Scan') {
         echo 'Scanning Docker image for vulnerabilities'
-        // Ideally, use a security scanning tool here (e.g., Trivy, Anchore)
-        // For now, this is just a placeholder; remove redundant docker build:
-        // sh "docker build -t ${dockerHubUser}/insure-me:${tag} ."
         echo 'Docker scan placeholder (add actual scan tool here)'
     }
 
     stage('Push Docker Image to DockerHub') {
-    steps {
         withCredentials([usernamePassword(credentialsId: 'dockerHubAccount', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-            sh '''
+            sh """
                 echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                docker push ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}
-            '''
+                docker push $dockerHubUser/$containerName:$tag
+            """
         }
     }
-}
-
 
     stage('Docker Container Deployment') {
         sh "docker rm $containerName -f || true"
