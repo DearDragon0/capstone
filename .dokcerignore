@@ -1,0 +1,36 @@
+# Ignore the target directory (compiled classes, JARs, etc.)
+target/
+
+# Maven-specific files
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+release.properties
+
+# Git
+.git
+.gitignore
+
+# OS / IDE / Editor files
+.DS_Store
+*.log
+*.swp
+*.swo
+*.bak
+*.tmp
+*.idea/
+*.vscode/
+*.project
+*.classpath
+*.settings/
+
+# Test reports
+surefire-reports/
+jacoco.exec
+
+# Docker config
+.dockerignore
+Dockerfile~
+
+# Jenkins pipeline config (optional)
+Jenkinsfile~
